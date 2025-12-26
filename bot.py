@@ -1,35 +1,31 @@
-@bot.event
-async def on_interaction(interaction: discord.Interaction):
-    if interaction.type != discord.InteractionType.component:
+@bot.command()
+async def get_my_score(ctx):
+    user_id = ctx.author.id
+
+    # hadiah yang sudah didapat user
+    info = manager.get_winners_img(user_id)
+    won_images = [x[0] for x in info]
+
+    all_images = os.listdir('img')
+
+    image_paths = [
+        f'img/{img}' if img in won_images else f'hidden_img/{img}'
+        for img in all_images
+    ]
+
+    collage = create_collage(image_paths)
+
+    if collage is None:
+        await ctx.send("Kamu belum memiliki pencapaian 😅")
         return
 
-    prize_id = interaction.data['custom_id']
-    user_id = interaction.user.id
-    username = interaction.user.name
+    output = f'collage_{user_id}.png'
+    cv2.imwrite(output, collage)
 
-    # cek apakah hadiah masih tersedia (maks 3)
-    if manager.count_winners(prize_id) >= 3:
-        await interaction.response.send_message(
-            content="😢 Maaf, hadiah sudah habis.",
-            ephemeral=True
+    with open(output, 'rb') as img:
+        await ctx.send(
+            content="🏆 **Pencapaian Kamu** 🏆",
+            file=discord.File(img)
         )
-        return
 
-    # coba tambahkan pemenang
-    success = manager.add_winner(user_id, username, prize_id)
-
-    if not success:
-        await interaction.response.send_message(
-            content="❌ Kamu sudah mengambil hadiah ini!",
-            ephemeral=True
-        )
-        return
-
-    # kirim gambar hadiah
-    img = manager.get_prize_img(prize_id)
-    with open(f'img/{img}', 'rb') as photo:
-        file = discord.File(photo)
-        await interaction.response.send_message(
-            content="🎉 Selamat, kamu mendapatkan gambar!",
-            file=file
-        )
+    os.remove(output)
